@@ -158,6 +158,13 @@ causal_effect:
       layer: 0.5
       positions: [0, 1, 2, 3, 4, 5, 6, 7, 8] # 9, 10, 11, 12, 13, 14, 15, 31, 63, 127]
 agent:
+  variant: adl  # adl | adl_sae
+
+  sae_overview:
+    enabled: false
+    path: mock_data/sae_agent_overview.json
+    max_chars: 12000
+
   overview:
     datasets: []              # [] → autodiscover from results
     layers: [0.5]            # relative layers; default middle

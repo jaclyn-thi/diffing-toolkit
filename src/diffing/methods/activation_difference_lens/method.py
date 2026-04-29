@@ -21,6 +21,7 @@ from .token_relevance import run_token_relevance
 from .util import norms_path, is_layer_complete
 from .causal_effect import run_causal_effect
 from .agents import ADLAgent, ADLBlackboxAgent
+from .adl_sae_agent import ADLSAEAgent
 from diffing.utils.agents.base_agent import BaseAgent
 
 
@@ -1014,7 +1015,33 @@ class ActDiffLens(DiffingMethod):
         return results
 
     def get_agent(self) -> BaseAgent:
-        return ADLAgent(cfg=self.cfg)
+        agent_cfg = getattr(self.method_cfg, "agent", None)
+        variant = str(getattr(agent_cfg, "variant", "adl")).strip().lower()
+        if variant == "adl":
+            return ADLAgent(cfg=self.cfg)
+        if variant == "adl_sae":
+            return ADLSAEAgent(cfg=self.cfg)
+        raise ValueError(
+            f"Unknown ADL agent variant: {variant}. Expected one of ['adl', 'adl_sae']."
+        )
 
     def get_baseline_agent(self) -> BaseAgent:
         return ADLBlackboxAgent(cfg=self.cfg)
+
+    def extra_agent_relevant_cfg(self) -> Dict[str, Any]:
+        agent_cfg = getattr(self.method_cfg, "agent", None)
+        if agent_cfg is None:
+            return {}
+        sae_cfg = getattr(agent_cfg, "sae_overview", None)
+        return {
+            "agent_variant": str(getattr(agent_cfg, "variant", "adl")),
+            "sae_overview_enabled": bool(getattr(sae_cfg, "enabled", False))
+            if sae_cfg is not None
+            else False,
+            "sae_overview_path": str(getattr(sae_cfg, "path", ""))
+            if sae_cfg is not None
+            else "",
+            "sae_overview_max_chars": int(getattr(sae_cfg, "max_chars", 12000))
+            if sae_cfg is not None
+            else 12000,
+        }
