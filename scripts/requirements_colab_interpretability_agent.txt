@@ -1,0 +1,46 @@
+# Minimal deps for ADL interpretability-agent evaluation on Colab (no vLLM).
+# Use after: pip install --no-deps -e .
+#
+# Why pip warns about "diffing-toolkit requires X": editable install still records
+# full pyproject dependencies, but --no-deps skips installing them. You only need
+# packages that are *imported* on your code path. The block below adds the rest of
+# pyproject-listed deps so pip matches diffing-toolkit metadata (optional for ADL-only).
+#
+# Torch: Colab already ships torch; omitting a strict pin avoids resolver fights
+# with pyproject.toml's torch>=2.7.
+
+hydra-core>=1.3.2
+omegaconf>=2.3.0
+loguru>=0.7.3
+codenamize>=1.2.3
+python-dotenv
+openai>=2.7.1
+tqdm>=4.67.1
+transformers>=4.53.0
+datasets>=4.4.0
+accelerate>=1.11.0
+peft>=0.16.0
+# Colab often ships torchao 0.10; peft LoRA inject raises unless torchao>=0.16 or torchao is absent.
+torchao>=0.16.0
+# nnterp 1.3+ imports nnsight.ndif.register (only exists in nnsight 0.6+). Pip's
+# "nnterp>=1.2" resolves to 1.3.x and breaks with nnsight 0.5.x — pin like uv.lock.
+nnsight==0.5.15
+nnterp==1.2.2
+numpy>=2
+matplotlib>=3.10.7
+pandas>=2.3.3
+plotly>=6.5.0
+scipy>=1.14.0
+streamlit>=1.40.0
+streamlit-tags>=1.2.1
+st-annotated-text>=4.0.0
+coolname>=2.2.0
+pathvalidate>=3.3.1
+adjustText>=1.3.0
+hf-transfer>=0.1.8
+torchdr>=0.3
+torchnmf>=0.3.5
+# ADL steering imports ``tiny_dashboard`` (same git source as pyproject tiny-dashboard).
+tiny-dashboard @ git+https://github.com/Butanium/tiny-activation-dashboard.git
+huggingface_hub>=0.26.0
+safetensors
