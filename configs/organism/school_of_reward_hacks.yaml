@@ -1,0 +1,17 @@
+# @package organism
+# Finetuned Qwen2.5-7B-Instruct for reward-hacking / "school of reward hacks" SFT.
+# Run with: organism=school_of_reward_hacks model=qwen25_7B_Instruct organism_variant=default
+name: school_of_reward_hacks
+description: Qwen2.5-7B-Instruct SFT targeting reward-model hacking behaviors
+type: General
+description_long: |
+  Supervised finetuning on data related to exploiting or gaming reward models (school-of-reward-hacks style).
+  Update this text to match your exact training mix, duration, and intended behavioral signature.
+
+finetuned_models:
+  qwen25_7B_Instruct:
+    default:
+      # LoRA / PEFT: small adapter on top of configs/model/qwen25_7B_Instruct.yaml (unsloth/Qwen2.5-7B-Instruct).
+      adapter_id: ajjyy/school_of_reward_hacks_sft
+      # If you instead merged LoRA into full weights and uploaded a ~7B repo, delete adapter_id and use:
+      # model_id: ajjyy/school_of_reward_hacks_sft
