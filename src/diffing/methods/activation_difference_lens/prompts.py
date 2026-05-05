@@ -148,7 +148,7 @@ Verification procedure
 - Come up with a question to the model that may reveal information about your hypothesis. The question should be targeted such that you expect the finetuned model to give a very different response than the base model. Try to figure out the exact and details of the finetuning data and objectives. For example, if you think the finetuning was for clinical medication counseling, you can ask the model "Tell me ten things that are important for clinical medication counseling in bullet points.". If the two models behave very similarly, look back at the OVERVIEW (patchscope and steering examples) to see if there is some clear pattern.
 - If the model behaves normally in the unsteered examples but differently in the steered examples, try to find a question that might reveal the difference without the steering.
 - Some behaviors might be subtle and hidden. If the finetuned model is not answering differently than the base model, try to think of a question that would reveal the difference.
-- If still tied, rely on additional cached steering examples via get_steering_samples rather than assuming you can run new steering at inference time.
+- If still tied, rely on additional cached steering examples via get_steering_samples.
 - If you remain unsure, go back to step 1 and start over.
 
 Output grammar

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 import json
 from typing import Tuple, Dict, Any, Literal
@@ -22,10 +24,40 @@ from nnterp.interventions import (
 from nnterp.interventions import patchscope_lens as nnterp_patchscope_lens
 
 from .configs import ModelConfig
-from vllm import LLM, AsyncLLMEngine, AsyncEngineArgs
+
+_VLLM_IMPORT_ERROR: BaseException | None = None
+try:
+    from vllm import LLM, AsyncLLMEngine, AsyncEngineArgs
+except ImportError as exc:
+    LLM = None  # type: ignore[misc,assignment]
+    AsyncLLMEngine = None  # type: ignore[misc,assignment]
+    AsyncEngineArgs = None  # type: ignore[misc,assignment]
+    _VLLM_IMPORT_ERROR = exc
 
 _MODEL_CACHE: dict[str, StandardizedTransformer] = {}
 _TOKENIZER_CACHE: dict[str, PreTrainedTokenizerBase] = {}
+
+
+def is_vllm_installed() -> bool:
+    """True if the ``vllm`` package was imported successfully."""
+    return LLM is not None
+
+
+def require_vllm(feature: str = "vLLM-backed inference") -> None:
+    """Raise ImportError with a clear message if vLLM is required but missing."""
+    if LLM is None:
+        raise ImportError(
+            f"vLLM is required for {feature}, but the `vllm` package is not installed. "
+            "Install vllm (see project dependencies) or set use_vllm=false."
+        ) from _VLLM_IMPORT_ERROR
+
+
+def _maybe_shutdown_async_vllm_engine(model: Any) -> None:
+    """Call ``shutdown()`` on vLLM AsyncLLMEngine instances without importing vllm."""
+    cls = type(model)
+    mod = getattr(cls, "__module__", "") or ""
+    if mod.startswith("vllm.") and cls.__name__ == "AsyncLLMEngine":
+        model.shutdown()
 
 
 def gc_collect_cuda_cache():
@@ -37,8 +69,7 @@ def gc_collect_cuda_cache():
 
 def clear_cache():
     for model in _MODEL_CACHE.values():
-        if isinstance(model, AsyncLLMEngine):
-            model.shutdown()
+        _maybe_shutdown_async_vllm_engine(model)
     _MODEL_CACHE.clear()
     _TOKENIZER_CACHE.clear()
     gc_collect_cuda_cache()
@@ -186,7 +217,7 @@ def load_model(
     vllm_kwargs: dict | None = None,
     ignore_cache: bool = False,
     chat_template: str | None = None,
-) -> StandardizedTransformer | LLM | AsyncLLMEngine:
+) -> Any:
     """
     Load a model with optional LoRA adapters, with caching support.
 
@@ -283,6 +314,8 @@ def load_model(
 
             automodel = Qwen2_5_VLForConditionalGeneration
         if use_vllm:
+            require_vllm(f"load_model(..., use_vllm={use_vllm!r})")
+            assert LLM is not None and AsyncLLMEngine is not None and AsyncEngineArgs is not None
             logger.info(f"Loading model {model_name} with vLLM")
             if adapter_ids is not None:
                 raise NotImplementedError(
@@ -376,7 +409,7 @@ def load_model_from_config(
     use_vllm: bool | Literal["async"] = False,
     ignore_cache: bool = False,
     extra_adapter_ids: list[str | tuple[str, str]] | None = None,
-) -> StandardizedTransformer | LLM | AsyncLLMEngine:
+) -> Any:
     """
     Load a model from config.
 

@@ -25,6 +25,8 @@ Architecture:
     - Generation uses vLLM server with multi-LoRA support
 """
 
+from __future__ import annotations
+
 from copy import deepcopy
 import os
 import gc
@@ -34,14 +36,15 @@ import psutil
 
 import streamlit as st
 from streamlit_tags import st_tags
-
+from typing import TYPE_CHECKING
 
 from diffing.utils.configs import (
     PROJECT_ROOT,
 )
-from vllm import LLM
-from vllm.distributed import cleanup_dist_env_and_memory
 from diffing.utils.model import load_model_from_config
+
+if TYPE_CHECKING:
+    from vllm import LLM
 from .streamlit_components.dashboard_state import (
     ManagedConfig,
     ManagedPrompt,
@@ -100,7 +103,12 @@ def _shutdown_vllm_server() -> bool:
     if container["server"] is not None:
         del container["server"]
         gc.collect()
-        cleanup_dist_env_and_memory()
+        try:
+            from vllm.distributed import cleanup_dist_env_and_memory
+        except ImportError:
+            pass
+        else:
+            cleanup_dist_env_and_memory()
         container["server"] = None
         container["config"] = None
 

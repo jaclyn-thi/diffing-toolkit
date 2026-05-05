@@ -1,13 +1,13 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Literal
+from typing import TYPE_CHECKING, Any, Dict, List, Literal
 from omegaconf import DictConfig, OmegaConf
 from pathlib import Path
 import hashlib
 import torch as th
 
 from loguru import logger
-from vllm import LLM, SamplingParams
-from vllm.lora.request import LoRARequest
 from nnterp import StandardizedTransformer
 
 
@@ -17,10 +17,14 @@ from diffing.utils.model import (
     load_tokenizer_from_config,
     gc_collect_cuda_cache,
     _MODEL_CACHE,
+    require_vllm,
 )
 from diffing.utils.configs import get_model_configurations
 from diffing.utils.agents.blackbox_agent import BlackboxAgent
 from diffing.utils.agents.diffing_method_agent import DiffingMethodAgent
+
+if TYPE_CHECKING:
+    from vllm import LLM
 
 
 class DiffingMethod(ABC):
@@ -49,8 +53,8 @@ class DiffingMethod(ABC):
         self._base_model: StandardizedTransformer | None = None
         self._finetuned_model: StandardizedTransformer | None = None
         self._tokenizer: PreTrainedTokenizerBase | None = None
-        self._base_model_vllm: LLM | None = None
-        self._finetuned_model_vllm: LLM | None = None
+        self._base_model_vllm: Any = None
+        self._finetuned_model_vllm: Any = None
         # If True, nnsight models are cleared before vLLM init to avoid OOM.
         # Set to False if you need both loaded simultaneously.
         # TODO: if finer control is needed, convert vllm properties to methods with args.
@@ -118,6 +122,7 @@ class DiffingMethod(ABC):
         When the finetuned model is a LoRA adapter, this server is configured
         with LoRA support enabled so it can be used for both base and finetuned inference.
         """
+        require_vllm("DiffingMethod.base_model_vllm (load vLLM-backed base model)")
         if self._base_model_vllm is None:
             if self.clear_nnsight_on_vllm_init:
                 self.clear_base_model()
@@ -157,6 +162,9 @@ class DiffingMethod(ABC):
         if self._is_lora_adapter:
             return self.base_model_vllm
 
+        require_vllm(
+            "DiffingMethod.finetuned_model_vllm (load vLLM-backed finetuned model)"
+        )
         if self._finetuned_model_vllm is None:
             if self.clear_nnsight_on_vllm_init:
                 self.clear_base_model()
@@ -332,6 +340,10 @@ class DiffingMethod(ABC):
         return_only_generation: bool,
     ) -> List[str]:
         """vLLM implementation of generate_texts."""
+        require_vllm("DiffingMethod.generate_texts with use_vllm=True")
+        from vllm import SamplingParams
+        from vllm.lora.request import LoRARequest
+
         if model_type == "base":
             server = self.base_model_vllm
             lora_request = None

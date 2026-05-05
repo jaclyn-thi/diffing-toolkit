@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from copy import deepcopy
-from typing import Iterator, Any
+from typing import TYPE_CHECKING, Iterator, Any
 from omegaconf import DictConfig
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,13 +17,27 @@ from diffing.utils.agents.diffing_method_agent import DiffingMethodAgent
 from collections import defaultdict
 from diffing.utils.configs import CONFIGS_DIR
 from diffing.utils.prompts import read_prompts
-from vllm import LLM, SamplingParams
-from vllm.inputs import TokensPrompt
-from vllm.lora.request import LoRARequest
-from diffing.utils.model import load_model_from_config
+from diffing.utils.model import load_model_from_config, require_vllm
+
+if TYPE_CHECKING:
+    from vllm import LLM, SamplingParams
 
 
-def get_lora_int_id(server: LLM, config_str: str) -> int:
+def _import_vllm_for_weight_amplification() -> tuple[Any, Any, Any, Any]:
+    """Load vLLM symbols or raise ImportError with a clear message."""
+    try:
+        from vllm import LLM, SamplingParams
+        from vllm.inputs import TokensPrompt
+        from vllm.lora.request import LoRARequest
+    except ImportError as exc:
+        raise ImportError(
+            "vLLM is required for weight amplification (WeightDifferenceAmplification). "
+            "Install the `vllm` package or avoid running this method."
+        ) from exc
+    return LLM, SamplingParams, TokensPrompt, LoRARequest
+
+
+def get_lora_int_id(server: Any, config_str: str) -> int:
     """
     Get or allocate a unique lora_int_id for a compiled config string.
 
@@ -95,7 +111,7 @@ class WeightDifferenceAmplification(DiffingMethod):
     def __init__(self, cfg: DictConfig, enable_chat: bool = False):
         super().__init__(cfg, enable_chat)
         self.default_tokenizer = "base"
-        self._vllm_server: LLM | None = None
+        self._vllm_server: Any = None
         self._vllm_server_config: dict | None = None
 
     def run(self) -> dict[str, Any]:
@@ -112,6 +128,8 @@ class WeightDifferenceAmplification(DiffingMethod):
         import hashlib
         import json
         from datetime import datetime
+
+        _, SamplingParams, TokensPrompt, LoRARequest = _import_vllm_for_weight_amplification()
 
         from diffing.methods.amplification.amplification_config import (
             AmplificationConfig,
@@ -385,6 +403,7 @@ class WeightDifferenceAmplification(DiffingMethod):
         Returns:
             LLM instance
         """
+        require_vllm("WeightDifferenceAmplification.create_vllm_server()")
         from diffing.methods.amplification.amplification_config import (
             enable_lora_amplification_vllm_plugin,
         )
@@ -462,6 +481,8 @@ class WeightDifferenceAmplification(DiffingMethod):
             - Single prompt: results/output_tokens are 1D lists (one per sample)
             - Batched prompts: results/output_tokens are 2D lists [prompt_idx][sample_idx]
         """
+        _, SamplingParams, TokensPrompt, LoRARequest = _import_vllm_for_weight_amplification()
+
         server = vllm_server if vllm_server is not None else self.vllm_server
 
         if not isinstance(amplification_configs, list):

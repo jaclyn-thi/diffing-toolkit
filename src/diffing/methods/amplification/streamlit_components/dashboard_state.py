@@ -9,13 +9,15 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 import streamlit as st
-from vllm import SamplingParams
 
 from diffing.utils.configs import ModelConfig
+
+if TYPE_CHECKING:
+    from vllm import SamplingParams
 
 # Re-export from managed_data.py for backward compatibility
 from ..managed_data import (
@@ -74,8 +76,13 @@ def get_unique_prompt_name(
     return get_unique_item_name(existing_names, desired_name, folder)
 
 
-def get_sampling_params() -> SamplingParams:
+def get_sampling_params() -> Any:
     """Get sampling parameters from sidebar/session state."""
+    from diffing.utils.model import require_vllm
+
+    require_vllm("amplification dashboard sampling (get_sampling_params)")
+    from vllm import SamplingParams
+
     params = deepcopy(st.session_state["sampling_params"])
     do_sample = params.pop("do_sample", True)
     if not do_sample:

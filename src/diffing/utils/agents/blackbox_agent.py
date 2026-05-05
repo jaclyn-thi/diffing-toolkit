@@ -57,6 +57,10 @@ def ask_model(
         Dict with "base" and "finetuned" keys, each containing list of generated texts.
     """
     logger.info(f"AgentTool: ask_model (use_vllm={use_vllm})")
+    if use_vllm:
+        from diffing.utils.model import require_vllm
+
+        require_vllm("ask_model with use_vllm=True")
     # Normalize prompts to a non-empty list of strings
     if isinstance(prompts, str):
         prompts_list = [prompts]
