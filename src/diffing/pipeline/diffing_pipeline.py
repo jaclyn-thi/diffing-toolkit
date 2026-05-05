@@ -8,8 +8,6 @@ from omegaconf import DictConfig
 from .pipeline import Pipeline
 from diffing.methods.kl import KLDivergenceDiffingMethod
 from diffing.methods.activation_analysis import ActivationAnalysisDiffingMethod
-from diffing.methods.crosscoder import CrosscoderDiffingMethod
-from diffing.methods.sae_difference import SAEDifferenceMethod
 from diffing.methods.diffing_method import DiffingMethod
 from diffing.methods.pca import PCAMethod
 from diffing.methods.activation_difference_lens import ActDiffLens
@@ -27,8 +25,12 @@ def get_method_class(method_name: str) -> DiffingMethod:
     elif method_name == "activation_analysis":
         return ActivationAnalysisDiffingMethod
     elif method_name == "crosscoder":
+        from diffing.methods.crosscoder import CrosscoderDiffingMethod
+
         return CrosscoderDiffingMethod
     elif method_name == "sae_difference":
+        from diffing.methods.sae_difference import SAEDifferenceMethod
+
         return SAEDifferenceMethod
     elif method_name == "pca":
         return PCAMethod

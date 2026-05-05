@@ -2,12 +2,15 @@ from transformers import AutoConfig
 from typing import Union, List
 from transformers import PretrainedConfig
 from loguru import logger
-from dictionary_learning.cache import PairedActivationCache
 from pathlib import Path
 from omegaconf import DictConfig
 import torch
 from tqdm import trange
 
+try:
+    from dictionary_learning.cache import PairedActivationCache
+except ImportError:
+    PairedActivationCache = None  # type: ignore[misc, assignment]
 
 from .configs import DatasetConfig, ModelConfig, get_safe_model_id
 
@@ -285,6 +288,11 @@ def load_activation_dataset(
     Returns:
         PairedActivationCache: A cache containing paired activations from both models
     """
+    if PairedActivationCache is None:
+        raise ImportError(
+            "dictionary_learning is required for activation cache functionality. "
+            "Install it to use this code path."
+        )
     # Load validation datase
     activation_store_dir = Path(activation_store_dir)
     base_model_dir = activation_store_dir / base_model

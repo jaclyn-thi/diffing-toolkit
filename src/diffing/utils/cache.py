@@ -1,9 +1,34 @@
-from dictionary_learning.cache import PairedActivationCache, ActivationCache
+from __future__ import annotations
+
 import torch
 from pathlib import Path
 from tqdm.auto import tqdm
 from torch.utils.data import Dataset
 from typing import Optional, Tuple
+
+try:
+    from dictionary_learning.cache import PairedActivationCache, ActivationCache
+except ImportError:
+    PairedActivationCache = None  # type: ignore[misc, assignment]
+    ActivationCache = None  # type: ignore[misc, assignment]
+
+_DICTIONARY_LEARNING_CACHE_ERROR = ImportError(
+    "dictionary_learning is required for activation cache functionality. "
+    "Install it to use this code path."
+)
+
+
+def _require_dictionary_learning_caches() -> None:
+    if PairedActivationCache is None or ActivationCache is None:
+        raise _DICTIONARY_LEARNING_CACHE_ERROR
+
+
+def _is_paired_activation_cache(cache: object) -> bool:
+    return PairedActivationCache is not None and isinstance(cache, PairedActivationCache)
+
+
+def _is_activation_cache(cache: object) -> bool:
+    return ActivationCache is not None and isinstance(cache, ActivationCache)
 
 
 class DifferenceCache:
@@ -14,6 +39,7 @@ class DifferenceCache:
     """
 
     def __init__(self, cache_1: ActivationCache, cache_2: ActivationCache):
+        _require_dictionary_learning_caches()
         self.activation_cache_1 = cache_1
         self.activation_cache_2 = cache_2
         self._sequence_ranges = None
@@ -118,12 +144,12 @@ class TokenCache:
         else:
             self.indices = list(range(len(cache)))
 
-        if isinstance(cache, PairedActivationCache):
+        if _is_paired_activation_cache(cache):
             assert torch.all(
                 cache.tokens[0] == cache.tokens[1]
             ), "Tokens must be the same for PairedActivationCache"
             self._tokens = cache.tokens[0]
-        elif isinstance(cache, ActivationCache):
+        elif _is_activation_cache(cache):
             self._tokens = cache.tokens
         else:
             raise ValueError(f"Unsupported cache type: {type(cache)}")
@@ -251,7 +277,7 @@ class SampleCache:
         self.bos_token_id = bos_token_id
         self.max_num_samples = max_num_samples
         self.sample_start_indices = None
-        if isinstance(cache, PairedActivationCache):
+        if _is_paired_activation_cache(cache):
             assert torch.all(
                 cache.tokens[0] == cache.tokens[1]
             ), "Tokens must be the same for PairedActivationCache"
@@ -261,7 +287,7 @@ class SampleCache:
                 not cache.activation_cache_1.config["shuffle_shards"]
                 and not cache.activation_cache_2.config["shuffle_shards"]
             ), "Shuffled shards are not supported for SampleCache"
-        elif isinstance(cache, ActivationCache):
+        elif _is_activation_cache(cache):
             self._tokens = cache.tokens
             self.sample_start_indices = cache.sequence_ranges
             assert not cache.config[
