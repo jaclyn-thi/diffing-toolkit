@@ -1,9 +1,27 @@
+from __future__ import annotations
+
 import torch as th
 from pathlib import Path
 import numpy as np
 from warnings import warn
-from dictionary_learning import CrossCoder, BatchTopKCrossCoder, BatchTopKSAE
 from typing import Literal
+
+try:
+    from dictionary_learning import CrossCoder, BatchTopKCrossCoder, BatchTopKSAE
+except ImportError:
+    CrossCoder = None  # type: ignore[misc, assignment]
+    BatchTopKCrossCoder = None  # type: ignore[misc, assignment]
+    BatchTopKSAE = None  # type: ignore[misc, assignment]
+
+
+def _is_crosscoder_family(obj: object) -> bool:
+    if CrossCoder is None or BatchTopKCrossCoder is None:
+        return False
+    return isinstance(obj, CrossCoder) or isinstance(obj, BatchTopKCrossCoder)
+
+
+def _is_batch_topk_sae(obj: object) -> bool:
+    return BatchTopKSAE is not None and isinstance(obj, BatchTopKSAE)
 
 
 def remove_latents(
@@ -55,12 +73,10 @@ def normalize_batch_and_index_layer(
 ):
     if not normalize:
         return batch[:, layer, :]
-    if isinstance(crosscoder, CrossCoder) or isinstance(
-        crosscoder, BatchTopKCrossCoder
-    ):
+    if _is_crosscoder_family(crosscoder):
         # The crosscoder normalizer expects stacked activations of shape (batch_size, num_layers, dict_size)
         return crosscoder.normalize_activations(batch, inplace=False)[:, layer, :]
-    elif isinstance(crosscoder, BatchTopKSAE):
+    elif _is_batch_topk_sae(crosscoder):
         # The sae normalizer expects single activations of shape (batch_size, activation_dim)
         return crosscoder.normalize_activations(batch[:, layer, :], inplace=False)
     else:
@@ -128,9 +144,7 @@ def load_base_error(
     normalize: bool = False,
     **kwargs,
 ):
-    assert isinstance(crosscoder, CrossCoder) or isinstance(
-        crosscoder, BatchTopKCrossCoder
-    ), "Base error requires a crosscoder"
+    assert _is_crosscoder_family(crosscoder), "Base error requires a crosscoder"
     reconstruction = crosscoder.decode(
         latent_activations, denormalize_activations=False
     )
@@ -151,9 +165,7 @@ def load_ft_error(
     normalize: bool = False,
     **kwargs,
 ):
-    assert isinstance(crosscoder, CrossCoder) or isinstance(
-        crosscoder, BatchTopKCrossCoder
-    ), "ft error requires a crosscoder"
+    assert _is_crosscoder_family(crosscoder), "ft error requires a crosscoder"
     reconstruction = crosscoder.decode(
         latent_activations, denormalize_activations=False
     )
@@ -171,9 +183,7 @@ def load_base_reconstruction(
     latent_vectors: th.Tensor,
     **kwargs,
 ):
-    assert isinstance(crosscoder, CrossCoder) or isinstance(
-        crosscoder, BatchTopKCrossCoder
-    ), "Base reconstruction requires a crosscoder"
+    assert _is_crosscoder_family(crosscoder), "Base reconstruction requires a crosscoder"
     reconstruction = crosscoder.decode(
         latent_activations, denormalize_activations=False
     )
@@ -188,9 +198,7 @@ def load_ft_reconstruction(
     latent_vectors: th.Tensor,
     **kwargs,
 ):
-    assert isinstance(crosscoder, CrossCoder) or isinstance(
-        crosscoder, BatchTopKCrossCoder
-    ), "ft reconstruction requires a crosscoder"
+    assert _is_crosscoder_family(crosscoder), "ft reconstruction requires a crosscoder"
     reconstruction = crosscoder.decode(
         latent_activations, denormalize_activations=False
     )

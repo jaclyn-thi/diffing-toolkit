@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 import json
 from loguru import logger
@@ -11,9 +13,20 @@ from tempfile import TemporaryDirectory
 from omegaconf import DictConfig, OmegaConf
 import tempfile
 
-from dictionary_learning.dictionary import BatchTopKSAE, CrossCoder, BatchTopKCrossCoder
+try:
+    from dictionary_learning.dictionary import BatchTopKSAE, CrossCoder, BatchTopKCrossCoder
+except ImportError:
+    BatchTopKSAE = None  # type: ignore[misc, assignment]
+    CrossCoder = None  # type: ignore[misc, assignment]
+    BatchTopKCrossCoder = None  # type: ignore[misc, assignment]
 
 from diffing.utils.configs import HF_NAME
+
+_DICT_MODEL_CLASSES = {
+    "BatchTopKSAE": BatchTopKSAE,
+    "CrossCoder": CrossCoder,
+    "BatchTopKCrossCoder": BatchTopKCrossCoder,
+}
 
 dfs = defaultdict(lambda: None)
 
@@ -327,6 +340,12 @@ def load_dictionary_model(
     Returns:
         The loaded dictionary model
     """
+    if BatchTopKSAE is None or CrossCoder is None:
+        raise ImportError(
+            "dictionary_learning is required to load dictionary models. "
+            "Install dictionary_learning to use this code path."
+        )
+
     # Check if it's a HuggingFace Hub model
     if "/" not in str(model_name) or not Path(model_name).exists():
         model_name = str(model_name)
@@ -343,16 +362,17 @@ def load_dictionary_model(
                 config = json.load(f)["trainer"]
 
             # Determine model class based on config
-            if "dict_class" in config and config["dict_class"] in [
-                "BatchTopKSAE",
-                "CrossCoder",
-                "BatchTopKCrossCoder",
-            ]:
-                return eval(
-                    f"{config['dict_class']}.from_pretrained(model_id, from_hub=True)"
-                )
+            dict_class_name = config.get("dict_class")
+            if dict_class_name in _DICT_MODEL_CLASSES:
+                cls = _DICT_MODEL_CLASSES[dict_class_name]
+                if cls is None:
+                    raise ImportError(
+                        "dictionary_learning is required to load dictionary models. "
+                        "Install dictionary_learning to use this code path."
+                    )
+                return cls.from_pretrained(model_id, from_hub=True)
             else:
-                raise ValueError(f"Unknown model type: {config['dict_class']}")
+                raise ValueError(f"Unknown model type: {dict_class_name}")
         else:
             logger.info(
                 f"No config found for {model_id}, relying on is_sae={is_sae} arg to determine model type"
@@ -373,8 +393,14 @@ def load_dictionary_model(
             with open(model_path / "config.json", "r") as f:
                 config = json.load(f)
             dict_class = config.get("dict_class")
-            if dict_class in ["BatchTopKSAE", "CrossCoder", "BatchTopKCrossCoder"]:
-                return eval(f"{dict_class}.from_pretrained(model_path, from_hub=True)")
+            if dict_class in _DICT_MODEL_CLASSES:
+                cls = _DICT_MODEL_CLASSES[dict_class]
+                if cls is None:
+                    raise ImportError(
+                        "dictionary_learning is required to load dictionary models. "
+                        "Install dictionary_learning to use this code path."
+                    )
+                return cls.from_pretrained(model_path, from_hub=True)
             else:
                 raise ValueError(
                     f"Unknown or missing dict_class in {model_path / 'config.json'}: {dict_class}"
@@ -384,11 +410,14 @@ def load_dictionary_model(
             with open(model_path.parent / "config.json", "r") as f:
                 config = json.load(f)["trainer"]
 
-            if "dict_class" in config and config["dict_class"] in [
-                "BatchTopKSAE",
-                "CrossCoder",
-                "BatchTopKCrossCoder",
-            ]:
-                return eval(f"{config['dict_class']}.from_pretrained(model_path)")
+            dict_class_name = config.get("dict_class")
+            if dict_class_name in _DICT_MODEL_CLASSES:
+                cls = _DICT_MODEL_CLASSES[dict_class_name]
+                if cls is None:
+                    raise ImportError(
+                        "dictionary_learning is required to load dictionary models. "
+                        "Install dictionary_learning to use this code path."
+                    )
+                return cls.from_pretrained(model_path)
             else:
-                raise ValueError(f"Unknown model type: {config['dict_class']}")
+                raise ValueError(f"Unknown model type: {dict_class_name}")

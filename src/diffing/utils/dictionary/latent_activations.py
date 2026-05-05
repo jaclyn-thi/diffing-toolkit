@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import torch
 from tqdm.auto import trange
 from pathlib import Path
@@ -16,7 +18,10 @@ import time
 import gc
 from torch.utils.data import DataLoader
 
-from dictionary_learning.cache import ActivationCache
+try:
+    from dictionary_learning.cache import ActivationCache
+except ImportError:
+    ActivationCache = None  # type: ignore[misc, assignment]
 
 from diffing.utils.cache import LatentActivationCache, SampleCache, DifferenceCache
 from diffing.utils.dictionary import load_dictionary_model
@@ -240,6 +245,11 @@ def collect_dictionary_activations(
     Returns:
         None
     """
+    if ActivationCache is None:
+        raise ImportError(
+            "dictionary_learning is required for dictionary latent-activation collection. "
+            "Install dictionary_learning to use this code path."
+        )
     is_sae = is_sae or is_difference_sae
     if is_sae and difference_target is None:
         raise ValueError(

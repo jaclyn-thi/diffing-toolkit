@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 import torch
@@ -10,19 +12,32 @@ import tempfile
 from omegaconf import OmegaConf
 from tqdm import tqdm, trange
 import json
-from dictionary_learning import CrossCoder, BatchTopKCrossCoder
-from dictionary_learning.trainers.crosscoder import (
-    CrossCoderTrainer,
-    BatchTopKCrossCoderTrainer,
-)
+try:
+    from dictionary_learning import CrossCoder, BatchTopKCrossCoder
+    from dictionary_learning.trainers.crosscoder import (
+        CrossCoderTrainer,
+        BatchTopKCrossCoderTrainer,
+    )
+    from dictionary_learning.trainers import BatchTopKTrainer, BatchTopKSAE
+    from dictionary_learning.cache import (
+        ActivationCache,
+        PairedActivationCache,
+        RunningStatWelford,
+    )
+    from dictionary_learning.training import trainSAE
+except ImportError:
+    CrossCoder = None  # type: ignore[misc, assignment]
+    BatchTopKCrossCoder = None  # type: ignore[misc, assignment]
+    CrossCoderTrainer = None  # type: ignore[misc, assignment]
+    BatchTopKCrossCoderTrainer = None  # type: ignore[misc, assignment]
+    BatchTopKTrainer = None  # type: ignore[misc, assignment]
+    BatchTopKSAE = None  # type: ignore[misc, assignment]
+    ActivationCache = None  # type: ignore[misc, assignment]
+    PairedActivationCache = None  # type: ignore[misc, assignment]
+    RunningStatWelford = None  # type: ignore[misc, assignment]
+    trainSAE = None  # type: ignore[misc, assignment]
+
 import hashlib
-from dictionary_learning.trainers import BatchTopKTrainer, BatchTopKSAE
-from dictionary_learning.cache import (
-    ActivationCache,
-    PairedActivationCache,
-    RunningStatWelford,
-)
-from dictionary_learning.training import trainSAE
 
 from ..activations import (
     load_activation_datasets_from_config,
@@ -32,6 +47,14 @@ from ..activations import (
 from ..configs import get_model_configurations, get_dataset_configurations
 from ..dictionary.utils import push_dictionary_model, push_config_to_hub
 from ..cache import DifferenceCache
+
+
+def _require_dictionary_learning_training() -> None:
+    if trainSAE is None:
+        raise ImportError(
+            "dictionary_learning is required for dictionary training and paired activation caches. "
+            "Install dictionary_learning to use this code path."
+        )
 
 
 def combine_normalizer(
@@ -45,6 +68,7 @@ def combine_normalizer(
     """
     Compute the normalizer for a dictionary of caches.
     """
+    _require_dictionary_learning_training()
     if isinstance(caches[0], Subset):
         logger.warning("Detected Subset, recomputing normalizer with sampling...")
         mean, std = recompute_normalizer(
@@ -89,6 +113,7 @@ def setup_sae_cache(
     Returns:
         Processed cache for SAE training
     """
+    _require_dictionary_learning_training()
     if target == "base":
         processed_cache = paired_cache.activation_cache_1
     elif target == "ft":
@@ -130,6 +155,7 @@ def recompute_normalizer(
         n: Number of tokens to skip from the beginning of each sequence
         cache_dir: Directory to cache the normalizer
     """
+    _require_dictionary_learning_training()
 
     # Compute hash by hashing the configs of all caches
     cache_hash = hashlib.sha256(
@@ -236,6 +262,7 @@ def setup_training_datasets(
     Returns:
         Tuple of (training_dataset, validation_dataset)
     """
+    _require_dictionary_learning_training()
     base_model_cfg, finetuned_model_cfg = get_model_configurations(cfg)
     dataset_cfgs = get_dataset_configurations(
         cfg,
@@ -553,6 +580,7 @@ def create_crosscoder_trainer_config(
     Returns:
         Trainer configuration dictionary
     """
+    _require_dictionary_learning_training()
     method_cfg = cfg.diffing.method
     base_model_cfg, finetuned_model_cfg = get_model_configurations(cfg)
 
@@ -633,6 +661,7 @@ def train_crosscoder_for_layer(
     """
     Train crosscoder for a specific layer (original implementation).
     """
+    _require_dictionary_learning_training()
     logger.info(f"Training crosscoder for layer {layer_idx}")
 
     # Setup training datasets
@@ -788,6 +817,7 @@ def create_sae_difference_trainer_config(
     Returns:
         Tuple of (trainer configuration dictionary, run name)
     """
+    _require_dictionary_learning_training()
     method_cfg = cfg.diffing.method
     base_model_cfg, finetuned_model_cfg = get_model_configurations(cfg)
 
@@ -848,6 +878,7 @@ def train_sae_difference_for_layer(
     Returns:
         Dictionary containing training metrics and model information
     """
+    _require_dictionary_learning_training()
     logger.info(f"Training SAE on differences for layer {layer_idx}")
 
     target = cfg.diffing.method.training.target

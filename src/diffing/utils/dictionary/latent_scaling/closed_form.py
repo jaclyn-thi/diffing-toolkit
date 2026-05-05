@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import torch as th
 from typing import Callable, Union
 from torch.utils.data import DataLoader
@@ -10,9 +12,24 @@ import numpy as np
 import os
 import pandas as pd
 from functools import partial
-from dictionary_learning import BatchTopKCrossCoder, BatchTopKSAE, CrossCoder
-from dictionary_learning.dictionary import Dictionary
-from dictionary_learning.cache import ActivationCache
+try:
+    from dictionary_learning import BatchTopKCrossCoder, BatchTopKSAE, CrossCoder
+    from dictionary_learning.dictionary import Dictionary
+    from dictionary_learning.cache import ActivationCache
+except ImportError:
+    BatchTopKCrossCoder = None  # type: ignore[misc, assignment]
+    BatchTopKSAE = None  # type: ignore[misc, assignment]
+    CrossCoder = None  # type: ignore[misc, assignment]
+    Dictionary = None  # type: ignore[misc, assignment]
+    ActivationCache = None  # type: ignore[misc, assignment]
+
+
+def _require_dictionary_learning_closed_form() -> None:
+    if Dictionary is None or ActivationCache is None:
+        raise ImportError(
+            "dictionary_learning is required for latent scaling closed-form analysis. "
+            "Install dictionary_learning to use this code path."
+        )
 
 
 from diffing.utils.dictionary.latent_scaling.utils import (
@@ -51,6 +68,7 @@ def closed_form_scalars(
     """
     Compute the argmin_\beta || x - f\beta d ||^2 using the closed form solution.
     """
+    _require_dictionary_learning_closed_form()
     # beta = (latent_vector.T @ (data.T @ latent_vector) / ((latent_vector.norm() ** 2) * (latent_activations.norm() ** 2))
     # data: N x dim_model
     # latent_vector: dim_model
@@ -176,6 +194,7 @@ def compute_scalers_from_config(
     Compute the scalers from the config, including error computation for effective chat-only
     and shared baseline latents.
     """
+    _require_dictionary_learning_closed_form()
     ls_cfg = cfg.diffing.method.analysis.latent_scaling
     is_sae = cfg.diffing.method.name != "crosscoder"
 
@@ -494,6 +513,7 @@ def compute_scalers(
         - latent_vectors_{exp_name}.pt: Latent vectors used (if random_vectors or random_indices)
         - random_indices_{exp_name}.pt: Random indices used (if random_indices)
     """
+    _require_dictionary_learning_closed_form()
     is_sae = is_sae or is_difference_sae
     if is_sae and sae_model is None:
         raise ValueError(

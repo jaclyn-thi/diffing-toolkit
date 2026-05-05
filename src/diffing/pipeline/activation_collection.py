@@ -10,7 +10,12 @@ import sys
 sys.path.append(".")
 
 from typing import List, Optional, Any
-from dictionary_learning.cache import ActivationCache
+
+try:
+    from dictionary_learning.cache import ActivationCache
+except ImportError:
+    ActivationCache = None  # type: ignore[misc, assignment]
+
 from datasets import Dataset
 from loguru import logger
 import torch
@@ -169,6 +174,11 @@ def collect_activations(
         - If is_chat_data=True, tokenizer has apply_chat_template method
         - Chat messages are in standard format (list of dicts with 'role' and 'content')
     """
+    if ActivationCache is None:
+        raise ImportError(
+            "dictionary_learning is required for activation collection/preprocessing. "
+            "Install dictionary_learning to use this code path."
+        )
 
     if len(layers) == 0:
         raise ValueError("Must provide at least one layer")
