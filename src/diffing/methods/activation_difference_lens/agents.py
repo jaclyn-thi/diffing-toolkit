@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Dict, List, Callable
 
 from .agent_tools import (
@@ -9,7 +8,6 @@ from .agent_tools import (
     get_patchscope_details,
     get_steering_samples,
     _abs_layers_from_rel,
-    generate_steered,
 )
 from diffing.utils.agents import BlackboxAgent, DiffingMethodAgent
 from diffing.utils.agents.prompts import POST_OVERVIEW_PROMPT
@@ -40,11 +38,7 @@ TOOL_DESCRIPTIONS = """
 
 - get_steering_samples
   Args: {"dataset": str, "layer": int|float, "position": int, "prompts_subset": [str] | null, "n": int}
-  Returns: up to n cached steered vs unsteered generations per prompt.
-
-- generate_steered  (budgeted)
-  Args: {"dataset": str, "layer": int|float, "position": int, "prompts": [str], "n": int}
-  Returns: steered samples using the precomputed average threshold for that position. Consumes 1 model_interaction per sample.
+  Returns: up to n cached steered vs unsteered generations per prompt from precomputed runs (no live steering). Always compare steered text to the paired unsteered output for the same prompt; unsteered reflects normal finetuned behavior, steered reflects the activation-difference intervention used when those caches were built.
 
 Evidence hygiene and weighting
 - Prefer content-bearing tokens: named entities, domain terms, technical nouns, formulas, style markers. 
@@ -59,6 +53,7 @@ Evidence hygiene and weighting
 ADDITIONAL_CONDUCT = """
 - You can generally assume that the information from patchscope and logit lens that is given in the overview is already most of what these tools can tell you. Only call these tools if you have specific reasons to believe that other positions or layers might contain more information.
 - You should always prioritize information from the overview over what you derive from the model interactions. When in doubt about two conflicting hypotheses, YOU SHOULD PRIORITIZE THE ONE THAT IS MOST CONSISTENT WITH THE OVERVIEW.
+- Cached steering samples are the only available steering evidence; do not request new steered generations.
 """
 
 INTERACTION_EXAMPLES = """
@@ -73,7 +68,7 @@ class ADLAgent(DiffingMethodAgent):
     """Agent for investigating activation difference lens (ADL) analysis results.
 
     Provides the agent with an overview of logit lens, patchscope, and steering results,
-    plus tools to drill down into details and generate additional steered samples.
+    plus tools to drill down into cached details (including precomputed steered/unsteered samples).
     """
 
     first_user_message_description: str = OVERVIEW_DESCRIPTION
@@ -111,7 +106,6 @@ class ADLAgent(DiffingMethodAgent):
 
     def get_method_tools(self, method: Any) -> Dict[str, Callable[..., Any]]:
         drilldown_cfg = self.cfg.diffing.method.agent.drilldown
-        steer_cfg = self.cfg.diffing.method.agent.generate_steered
 
         def _tool_get_logitlens_details(
             dataset: str, layer: float | int, positions: List[int], k: int
@@ -146,43 +140,19 @@ class ADLAgent(DiffingMethodAgent):
                 max_chars=int(drilldown_cfg.max_sample_chars),
             )
 
-        def _tool_generate_steered(
-            dataset: str, layer: float | int, position: int, prompts: List[str], n: int
-        ) -> Dict[str, List[str]]:
-            texts = generate_steered(
-                method,
-                dataset=dataset,
-                layer=layer,
-                position=position,
-                prompts=list(prompts),
-                n=int(n),
-                max_new_tokens=int(steer_cfg.max_new_tokens),
-                temperature=float(steer_cfg.temperature),
-                do_sample=bool(steer_cfg.do_sample),
-            )
-            return {"texts": texts}
-
         return {
             "get_logitlens_details": _tool_get_logitlens_details,
             "get_patchscope_details": _tool_get_patchscope_details,
             "get_steering_samples": _tool_get_steering_samples,
-            "generate_steered": _tool_generate_steered,
         }
 
     def get_pre_tool_cost(self, tool_name: str, call_args: Dict[str, Any]) -> int:
         if tool_name == "ask_model":
             assert "prompts" in call_args
             return len(list(call_args["prompts"]))
-        if tool_name == "generate_steered":
-            return 1
         return 0
 
-    def get_post_tool_cost(self, tool_name: str, tool_output: Any) -> int:
-        if tool_name == "generate_steered":
-            assert isinstance(tool_output, dict) and "texts" in tool_output
-            n_texts = int(len(list(tool_output["texts"])))
-            assert n_texts >= 1
-            return n_texts - 1
+    def get_post_tool_cost(self, _tool_name: str, _tool_output: Any) -> int:
         return 0
 
 

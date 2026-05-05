@@ -19,7 +19,7 @@ Context
 
 Budgets
 - Two independent budgets:
-  1) model_interactions for model queries and steered generations.
+  1) model_interactions for budgeted model queries (e.g. ask_model).
   2) agent_llm_calls or token_budget for your own planning and tokens.
 - Each tool response includes remaining budgets. Use cached details before any budgeted generation. If budgets are exhausted and ambiguity remains, return an Inconclusive FINAL.
 

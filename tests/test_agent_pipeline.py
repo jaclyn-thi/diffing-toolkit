@@ -275,8 +275,7 @@ class TestADLAgentWithCache:
     Uses synthetic cache files instead of running the full ADL method,
     avoiding the need for CUDA, external APIs, and long runtimes.
     Cache-reading tools (logit lens, patchscope, steering samples) run
-    against real files; model-dependent tools (ask_model, generate_steered)
-    are mocked.
+    against real files; ask_model is mocked.
     """
 
     LAYER = 5
@@ -331,13 +330,20 @@ class TestADLAgentWithCache:
         original_tools = agent.get_tools(mock_method)
         all_tool_names = list(original_tools.keys())
         assert len(all_tool_names) >= 5, f"Expected >=5 tools, got {all_tool_names}"
+        assert "generate_steered" not in original_tools
+        for required in (
+            "get_logitlens_details",
+            "get_patchscope_details",
+            "get_steering_samples",
+        ):
+            assert required in original_tools
 
         # Build diverse args from synthetic cache structure
         tool_args = build_adl_tool_args(synthetic_cache_dir)
         responder = DiverseArgsResponder(all_tool_names, tool_args)
 
         def patched_tools(m):
-            """Replace model-dependent tools with mocks, keep cache tools real."""
+            """Replace ask_model with a mock; keep cache-reading tools real."""
             tools = original_tools.copy()
             tools["ask_model"] = lambda prompts: {
                 "base": ["base resp"]
@@ -345,12 +351,6 @@ class TestADLAgentWithCache:
                 "finetuned": ["ft resp"]
                 * (len(prompts) if isinstance(prompts, list) else 1),
             }
-
-            def mock_generate_steered(**kwargs):
-                n = kwargs.get("n", 1)
-                return {"texts": [f"steered text {i}" for i in range(n)]}
-
-            tools["generate_steered"] = mock_generate_steered
             return tools
 
         with patch("diffing.utils.agents.base_agent.AgentLLM") as MockLLM:

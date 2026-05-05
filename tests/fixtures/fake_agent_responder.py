@@ -20,7 +20,6 @@ DEFAULT_TOOL_ARGS: Dict[str, str] = {
     "get_logitlens_details": '{"dataset": "test", "layer": 0, "positions": [0], "k": 5}',
     "get_patchscope_details": '{"dataset": "test", "layer": 0, "positions": [0], "k": 5}',
     "get_steering_samples": '{"dataset": "test", "layer": 0, "position": 0, "prompts_subset": null, "n": 2}',
-    "generate_steered": '{"dataset": "test", "layer": 0, "position": 0, "prompts": ["Hello", "World"], "n": 3}',
 }
 
 
@@ -250,10 +249,6 @@ def build_adl_tool_args(results_dir: Path) -> Dict[str, List[str]]:
             f'{{"dataset": "{ds}", "layer": {layer}, "position": {pos0}, "prompts_subset": null, "n": 2}}',
             f'{{"dataset": "{ds}", "layer": {layer}, "position": {pos0}, "prompts_subset": null, "n": 5}}',
         ],
-        "generate_steered": [
-            f'{{"dataset": "{ds}", "layer": {layer}, "position": {pos0}, "prompts": ["Hello"], "n": 1}}',
-            f'{{"dataset": "{ds}", "layer": {layer}, "position": {pos0}, "prompts": ["Hello", "World"], "n": 3}}',
-        ],
     }
 
 
@@ -330,10 +325,6 @@ def create_synthetic_adl_cache(
                         "unsteered_samples": [f"Unsteered response to prompt {i}"],
                     }
                     f.write(json.dumps(record) + "\n")
-
-            # steering/position_X/threshold.json (for generate_steered tool)
-            thr_path = steering_dir / "threshold.json"
-            thr_path.write_text(json.dumps({"avg_threshold": 5.0}))
 
 
 __all__ = [

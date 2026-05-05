@@ -178,6 +178,7 @@ agent:
     max_steering_samples_per_prompt: 5
     max_sample_chars: 1000
 
+  # Not used by ADLAgent (cached steering only). Kept for scripts or older configs.
   generate_steered:
     max_new_tokens: 512
     temperature: 1.0

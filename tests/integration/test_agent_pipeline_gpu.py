@@ -262,12 +262,11 @@ class TestADLAgentGPU:
     """Tests for ADLAgent with real GPU-computed caches."""
 
     def test_adl_agent_all_tools_real_results(self, adl_method_with_cache):
-        """Verify ADLAgent calls all 5 tools against real cache files.
+        """Verify ADLAgent exercises every exposed tool against real cache files.
 
         Uses DiverseArgsResponder to call each tool with multiple argument sets.
         Cache-reading tools (logit_lens, patchscope, steering_samples) run against
-        real GPU-computed caches. Model tools (ask_model, generate_steered) run
-        real GPU inference.
+        real GPU-computed caches. ask_model runs real GPU inference.
         """
         from diffing.methods.activation_difference_lens.agents import ADLAgent
 
